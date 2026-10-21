@@ -61,10 +61,13 @@
       "target": [
         "nsis",
         "portable"
-      ],
-      "artifactName": "${productName}-${version}-${arch}-${target}.${ext}"
+      ]
+    },
+    "portable": {
+      "artifactName": "VocabQuest-Portable-${version}.${ext}"
     },
     "nsis": {
+      "artifactName": "VocabQuest-Setup-${version}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowElevation": false,

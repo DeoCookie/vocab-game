@@ -83,3 +83,16 @@ test('production dependencies are empty (nothing third-party runs in the app)', 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.equal(Object.keys(pkg.dependencies || {}).length, 0);
 });
+
+test('the release pipeline runs every test before building, and names downloads clearly', () => {
+  const wf = fs.readFileSync(path.join(ROOT, '.github/workflows/release.yml'), 'utf8');
+  const verify = wf.indexOf('npm run verify');
+  const build = wf.indexOf('electron-builder');
+  assert.ok(verify > 0 && build > verify, 'tests must run before the installer is built');
+  assert.match(wf, /tags:\s*\['v\*'\]/);
+  assert.match(wf, /permissions:\s*\n\s*contents: write/);
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  assert.equal(pkg.build.nsis.artifactName, 'VocabQuest-Setup-${version}.${ext}');
+  assert.equal(pkg.build.portable.artifactName, 'VocabQuest-Portable-${version}.${ext}');
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
+});

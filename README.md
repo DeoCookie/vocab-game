@@ -4,6 +4,14 @@ A free desktop game for Windows that grows your English vocabulary. Hear every w
 
 ![Vocab Quest home screen](docs/screenshot-home.png)
 
+## Download
+
+**[Download the latest version for Windows](https://github.com/DeoCookie/vocab-game/releases/latest)**, then run the **VocabQuest-Setup** file.
+
+- Works on Windows 10 and 11 (64-bit). No admin rights needed.
+- Prefer not to install? Download the **VocabQuest-Portable** file and run it from anywhere.
+- The app isn't code-signed yet, so Windows may say "Windows protected your PC". Click **More info → Run anyway**.
+
 ## What's inside
 
 - **500 carefully chosen words** across three levels (Everyday, Intermediate, Advanced). Each has a definition, an example sentence, synonyms and antonyms.
@@ -18,7 +26,7 @@ A free desktop game for Windows that grows your English vocabulary. Hear every w
 - **Word book** to browse and search all 500 words.
 - Light and dark themes, full keyboard play (`1`–`4` to answer, `Enter` to continue), screen-reader labels, and reduced-motion support.
 
-## Install and run (Windows 10/11)
+## Run from source (for developers)
 
 You need [Node.js](https://nodejs.org/) 20 or newer.
 
@@ -26,6 +34,7 @@ You need [Node.js](https://nodejs.org/) 20 or newer.
 git clone https://github.com/DeoCookie/vocab-game.git
 cd vocab-game
 npm install
+npx playwright install chromium   # browser used by the UI tests
 npm start
 ```
 
@@ -37,10 +46,24 @@ npm run build:win
 
 This runs lint and every test first, then writes two files to `dist\`:
 
-- `Vocab Quest-1.0.0-x64-nsis.exe` – a normal installer (per-user, no admin rights needed).
-- `Vocab Quest-1.0.0-x64-portable.exe` – a single file you can run without installing.
+- `VocabQuest-Setup-1.0.0.exe` – a normal installer (per-user, no admin rights needed).
+- `VocabQuest-Portable-1.0.0.exe` – a single file you can run without installing.
 
 The builds are unsigned, so SmartScreen may warn on first launch. See [SECURITY.md](SECURITY.md#code-signing).
+
+### Publish a new release
+
+GitHub builds and publishes the download for you (`.github/workflows/release.yml`):
+
+1. Bump `version` in `package.json` and add a `CHANGELOG.md` entry.
+2. Commit, then tag and push:
+
+   ```powershell
+   git tag -a v1.0.1 -m "Vocab Quest 1.0.1"
+   git push origin main --follow-tags
+   ```
+
+GitHub Actions then runs every test on Windows, builds the installer and portable app, and attaches them, with SHA-256 checksums, to a new release. If any test fails, nothing is published.
 
 ## Tests
 
