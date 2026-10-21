@@ -1,0 +1,8 @@
+#!/bin/sh
+# Blocks a push unless lint, unit/security tests and UI tests all pass.
+# Enable once per clone with:  npm run hooks:install
+echo "pre-push: running lint and tests..."
+npm run verify || {
+  echo "pre-push: tests failed, push cancelled." >&2
+  exit 1
+}

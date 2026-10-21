@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Vocab Quest</title>
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#view">Skip to content</a>
+    <div class="shell">
+      <nav class="spine" aria-label="Main">
+        <div class="brand">
+          <img src="assets/icon.svg" alt="" width="36" height="36" />
+          <span class="brand-name">Vocab Quest</span>
+        </div>
+        <ul class="nav-list" id="nav"></ul>
+        <div class="spine-footer" id="player-card" aria-live="polite"></div>
+      </nav>
+      <main id="view" class="view" tabindex="-1" aria-live="polite"></main>
+    </div>
+    <div class="toast-stack" id="toasts" role="status" aria-live="polite"></div>
+    <dialog class="dialog" id="confirm-dialog" aria-labelledby="confirm-title">
+      <h2 id="confirm-title" class="dialog-title"></h2>
+      <p id="confirm-body" class="dialog-body"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-quiet" id="confirm-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-ok">Confirm</button>
+      </div>
+    </dialog>
+    <noscript>Vocab Quest needs JavaScript to run.</noscript>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

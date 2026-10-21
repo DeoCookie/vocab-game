@@ -1,0 +1,78 @@
+{
+  "name": "vocab-game",
+  "productName": "Vocab Quest",
+  "version": "1.0.0",
+  "description": "A free, offline desktop game that grows your English vocabulary with spoken pronunciation, spelling practice, synonyms and antonyms.",
+  "main": "src/main/main.js",
+  "author": "Vocab Quest contributors",
+  "license": "MIT",
+  "private": true,
+  "keywords": [
+    "vocabulary",
+    "english",
+    "education",
+    "game",
+    "spelling",
+    "electron"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "start": "electron .",
+    "lint": "eslint .",
+    "test": "node --test \"test/unit/**/*.test.{js,mjs}\"",
+    "test:e2e": "node --test --test-concurrency=1 \"test/e2e/**/*.test.mjs\"",
+    "verify": "npm run lint && npm test && npm run test:e2e",
+    "build:win": "npm run verify && electron-builder --win nsis portable",
+    "hooks:install": "git config core.hooksPath .githooks"
+  },
+  "devDependencies": {
+    "electron": "^44.9.3",
+    "electron-builder": "^26.16.1",
+    "eslint": "^10.1.0",
+    "playwright": "^1.56.0"
+  },
+  "build": {
+    "appId": "io.github.vocabquest.app",
+    "productName": "Vocab Quest",
+    "copyright": "Copyright (c) 2026 Vocab Quest contributors. Released under the MIT License.",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "package.json",
+      "LICENSE",
+      "src/**/*"
+    ],
+    "asar": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "artifactName": "${productName}-${version}-${arch}-${target}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "license": "LICENSE",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

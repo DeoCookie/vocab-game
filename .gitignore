@@ -1,0 +1,12 @@
+node_modules/
+dist/
+out/
+coverage/
+test-results/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.env
+.env.*
+*.tmp
