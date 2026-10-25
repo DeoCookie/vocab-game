@@ -1,10 +1,11 @@
 'use strict';
 
 const fs = require('node:fs/promises');
+const { constants: fsConstants } = require('node:fs');
 const path = require('node:path');
-const { sanitizeProgress } = require('./progress-schema');
+const { sanitizeDocument, isLegacyProgress } = require('./progress-schema');
 
-const MAX_BYTES = 1024 * 1024; // progress files are tiny; refuse anything larger
+const MAX_BYTES = 4 * 1024 * 1024; // up to 8 players with 1,500 words each fits well under this
 
 /**
  * Persists progress as JSON in the user's profile folder.
@@ -35,16 +36,20 @@ class ProgressStore {
       if (err && err.code === 'ENOENT') return null;
       throw err;
     }
+    let parsed;
     try {
-      return sanitizeProgress(JSON.parse(raw));
+      parsed = JSON.parse(raw);
     } catch {
       await this.quarantine();
       return null;
     }
+    // Keep a copy of a version 1 save before it is upgraded, so nothing can be lost.
+    if (isLegacyProgress(parsed)) await this.backupLegacy();
+    return sanitizeDocument(parsed);
   }
 
   save(data) {
-    const clean = sanitizeProgress(data);
+    const clean = sanitizeDocument(data);
     const json = JSON.stringify(clean);
     if (Buffer.byteLength(json, 'utf8') > this.maxBytes) {
       return Promise.reject(new RangeError('Progress data is too large to save'));
@@ -64,6 +69,14 @@ class ProgressStore {
     const result = this.queue.then(run, run);
     this.queue = result.catch(() => undefined);
     return result;
+  }
+
+  async backupLegacy() {
+    try {
+      await fs.copyFile(this.filePath, `${this.filePath}.v1-backup`, fsConstants.COPYFILE_EXCL);
+    } catch {
+      /* a backup already exists, or copying failed: never block loading */
+    }
   }
 
   /** Keep a corrupt file for inspection instead of silently deleting it. */

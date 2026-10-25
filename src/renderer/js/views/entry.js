@@ -1,8 +1,7 @@
 import { el, icon, highlightWord } from '../dom.js';
+import { attachTooltip } from '../tooltip.js';
 
-export const LEVEL_NAMES = Object.freeze({ 1: 'Everyday', 2: 'Intermediate', 3: 'Advanced' });
-
-export function sayButtons(ctx, text) {
+export function sayButtons(ctx, text, { label = text } = {}) {
   return el(
     'div',
     { class: 'say-group' },
@@ -11,8 +10,8 @@ export function sayButtons(ctx, text) {
       {
         type: 'button',
         class: 'say-btn is-primary',
-        title: `Hear "${text}"`,
-        'aria-label': `Hear "${text}"`,
+        title: `Hear "${label}"`,
+        'aria-label': `Hear "${label}"`,
         on: { click: () => ctx.say(text) }
       },
       icon('speaker')
@@ -23,7 +22,7 @@ export function sayButtons(ctx, text) {
         type: 'button',
         class: 'say-btn',
         title: 'Hear it slowly',
-        'aria-label': `Hear "${text}" slowly`,
+        'aria-label': `Hear "${label}" slowly`,
         on: { click: () => ctx.say(text, { slow: true }) }
       },
       icon('slow')
@@ -31,20 +30,32 @@ export function sayButtons(ctx, text) {
   );
 }
 
+/** Where a word sits in the game, e.g. "Beginner, set 12". */
+export function placeOf(ctx, word) {
+  return `${ctx.data.tierName(word.tier)}, set ${ctx.data.setNumber(word)}`;
+}
+
+function chip(ctx, term, kind) {
+  const button = el('button', {
+    type: 'button',
+    class: `chip chip-${kind}`,
+    text: term,
+    dataset: { term },
+    on: { click: () => ctx.say(term) }
+  });
+  return attachTooltip(button, () => {
+    const game = ctx.data.byWord.get(term);
+    return {
+      term,
+      text: ctx.data.gloss(term),
+      meta: game ? `In the game: ${placeOf(ctx, game)}` : 'Click to hear it'
+    };
+  });
+}
+
 function chipList(ctx, items, kind) {
-  return el(
-    'div',
-    { class: 'chips' },
-    items.map((item) =>
-      el('button', {
-        type: 'button',
-        class: `chip chip-${kind}`,
-        text: item,
-        title: `Hear "${item}"`,
-        on: { click: () => ctx.say(item) }
-      })
-    )
-  );
+  if (!items.length) return el('p', { class: 'chips-empty', text: 'No common opposite' });
+  return el('div', { class: 'chips' }, items.map((item) => chip(ctx, item, kind)));
 }
 
 export function relations(ctx, word) {
@@ -72,7 +83,7 @@ export function entry(ctx, word, { showExample = true, showRelations = true, hea
           'p',
           { class: 'headword-meta' },
           el('span', { class: 'pos', text: word.pos }),
-          el('span', { class: 'level-tag', text: LEVEL_NAMES[word.level] })
+          el('span', { class: `level-tag tier-${word.tier}`, text: placeOf(ctx, word) })
         )
       ),
       sayButtons(ctx, word.word)
@@ -80,22 +91,8 @@ export function entry(ctx, word, { showExample = true, showRelations = true, hea
     el('hr', { class: 'entry-rule' }),
     el('p', { class: 'definition', text: word.definition }),
     showExample ? el('p', { class: 'example' }, highlightWord(word.example, word.word)) : null,
-    showRelations ? relations(ctx, word) : null
-  );
-}
-
-/** Row of progress pips for a session. */
-export function pips(total, results, current) {
-  return el(
-    'div',
-    { class: 'pips', 'aria-label': `Question ${Math.min(current + 1, total)} of ${total}` },
-    Array.from({ length: total }, (_, i) => {
-      let state = '';
-      if (results[i] === true) state = ' is-right';
-      else if (results[i] === false) state = ' is-wrong';
-      else if (i === current) state = ' is-current';
-      return el('span', { class: `pip${state}` });
-    })
+    showRelations ? relations(ctx, word) : null,
+    showRelations ? el('p', { class: 'chips-hint', text: 'Point at a synonym or antonym to see what it means.' }) : null
   );
 }
 
@@ -108,18 +105,29 @@ export function feedback(correct, title, detail) {
   );
 }
 
+/** Thin progress bar for a session. */
+export function progressBar(done, total, label) {
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  return el(
+    'div',
+    { class: 'session-progress', role: 'progressbar', 'aria-label': label, 'aria-valuemin': '0', 'aria-valuemax': String(total), 'aria-valuenow': String(done) },
+    el('span', { style: { width: `${pct}%` } })
+  );
+}
+
 /** End-of-session summary with the words that need another look. */
-export function results(ctx, { title, score, total, xp, missed, again }) {
+export function results(ctx, { title, score, total, xp, missed, again, againLabel = 'Play again', extra = null }) {
   return el(
     'section',
     { class: 'page result' },
     el('h1', { class: 'page-title', text: title }),
-    el('p', { class: 'result-score', text: `${score}/${total}` }),
-    el('p', { class: 'result-caption', text: `+${xp} XP this round` }),
+    total ? el('p', { class: 'result-score', text: `${score}/${total}` }) : null,
+    el('p', { class: 'result-caption', text: total ? `right first time, +${xp} XP` : `+${xp} XP` }),
+    extra,
     el(
       'div',
       { class: 'btn-row', style: { 'justify-content': 'center' } },
-      el('button', { type: 'button', class: 'btn btn-primary', text: 'Play again', on: { click: again } }),
+      again ? el('button', { type: 'button', class: 'btn btn-primary', id: 'again', text: againLabel, on: { click: again } }) : null,
       el('button', { type: 'button', class: 'btn btn-quiet', text: 'Back to today', on: { click: () => ctx.navigate('home') } })
     ),
     missed.length
@@ -135,7 +143,9 @@ export function results(ctx, { title, score, total, xp, missed, again }) {
                 'li',
                 { class: 'review-item' },
                 el('b', { text: w.word }),
-                el('span', { text: ` — ${w.definition}. Similar: ${w.synonyms.join(', ')}. Opposite: ${w.antonyms.join(', ')}.` })
+                el('span', {
+                  text: ` — ${w.definition}. Similar: ${w.synonyms.join(', ')}.${w.antonyms.length ? ` Opposite: ${w.antonyms.join(', ')}.` : ''}`
+                })
               )
             )
           )

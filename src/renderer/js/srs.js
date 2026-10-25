@@ -1,7 +1,9 @@
 /**
- * Leitner-style spaced repetition. Each word sits in a box 0-5; a correct
- * answer moves it up a box and pushes its next review further out, a wrong
- * answer sends it back to the start.
+ * Leitner-style spaced repetition. Each word sits in a box 0-5. A correct
+ * answer given when the word is due moves it up a box and pushes its next
+ * review further out; answering again before it is due does not count twice,
+ * so cramming cannot fake long-term mastery. A wrong answer sends it back to
+ * the start.
  */
 import { shuffle } from './rng.js';
 
@@ -12,71 +14,100 @@ export const BOX_INTERVALS = Object.freeze([0, 10 * MINUTE, 1 * DAY, 3 * DAY, 7 
 export const MAX_BOX = BOX_INTERVALS.length - 1;
 export const MASTERED_BOX = 4;
 
+/** Bits recording which kinds of question a word has been answered correctly in. */
+export const CHECK = Object.freeze({ meaning: 1, spelling: 2, relation: 4 });
+export const ALL_CHECKS = 7;
+
 export function emptyEntry() {
-  return { box: 0, seen: 0, correct: 0, wrong: 0, due: 0, last: 0 };
+  return { box: 0, seen: 0, correct: 0, wrong: 0, due: 0, last: 0, checks: 0 };
 }
 
 export function reviewWord(entry, correct, now = Date.now()) {
   const prev = entry ? { ...emptyEntry(), ...entry } : emptyEntry();
-  const box = correct ? Math.min(MAX_BOX, prev.box + 1) : 0;
+  let box = prev.box;
+  let due = prev.due;
+  if (!correct) {
+    box = 0;
+    due = now;
+  } else if (prev.seen === 0 || prev.due <= now) {
+    box = Math.min(MAX_BOX, prev.box + 1);
+    due = now + BOX_INTERVALS[box];
+  }
   return {
+    ...prev,
     box,
+    due,
     seen: prev.seen + 1,
     correct: prev.correct + (correct ? 1 : 0),
     wrong: prev.wrong + (correct ? 0 : 1),
-    due: now + BOX_INTERVALS[box],
     last: now
   };
+}
+
+export function addCheck(entry, check) {
+  const bit = CHECK[check] || 0;
+  return { ...emptyEntry(), ...entry, checks: ((entry && entry.checks) || 0) | bit };
+}
+
+export function isLearned(entry) {
+  return Boolean(entry && entry.checks === ALL_CHECKS);
+}
+
+export function isMasteredEntry(entry) {
+  return Boolean(entry && entry.box >= MASTERED_BOX);
 }
 
 export function wordStatus(entry) {
   if (!entry || entry.seen === 0) return 'new';
   if (entry.box >= MASTERED_BOX) return 'mastered';
+  if (entry.checks === ALL_CHECKS) return 'learned';
   return 'learning';
 }
 
-export function filterByLevel(words, level) {
-  if (level === undefined || level === null || level === 'all') return words;
-  const n = Number(level);
-  const filtered = words.filter((w) => w.level === n);
-  return filtered.length >= 4 ? filtered : words;
+/** True once a word has been tested at least once (reading a card does not count). */
+export function isTested(entry) {
+  return Boolean(entry && (entry.correct || 0) + (entry.wrong || 0) > 0);
+}
+
+export function isDue(entry, now = Date.now()) {
+  return isTested(entry) && entry.due <= now;
+}
+
+/** Words that have been studied and are due for review, most overdue first. */
+export function dueWords(words, progressWords, now = Date.now()) {
+  const known = progressWords || {};
+  return words.filter((w) => isDue(known[w.word], now)).sort((a, b) => known[a.word].due - known[b.word].due);
 }
 
 /**
- * Choose the next words to study: overdue reviews first (most overdue first),
- * then brand-new words (easier levels first), then the weakest words.
+ * Choose words for a practice game from a pool (usually one tier): overdue
+ * reviews first, then words already being learned, then new words in the
+ * suggested order, so practice follows the same path as the sets.
  */
-export function pickWords(words, progressWords, { count = 10, now = Date.now(), rng = Math.random, level = 'all' } = {}) {
-  const pool = filterByLevel(words, level);
+export function pickWords(pool, progressWords, { count = 10, now = Date.now(), rng = Math.random } = {}) {
   const known = progressWords || {};
   const due = [];
+  const learning = [];
   const fresh = [];
   const later = [];
   for (const w of pool) {
     const entry = known[w.word];
-    if (!entry || entry.seen === 0) fresh.push(w);
+    if (!isTested(entry)) fresh.push(w);
     else if (entry.due <= now) due.push(w);
+    else if (entry.box < MASTERED_BOX) learning.push(w);
     else later.push(w);
   }
   due.sort((a, b) => known[a.word].due - known[b.word].due);
-  const freshByLevel = [1, 2, 3].flatMap((lvl) => shuffle(fresh.filter((w) => w.level === lvl), rng));
-  later.sort((a, b) => known[a.word].box - known[b.word].box || known[a.word].due - known[b.word].due);
+  learning.sort((a, b) => known[a.word].box - known[b.word].box || (a.order || 0) - (b.order || 0));
+  fresh.sort((a, b) => (a.order || 0) - (b.order || 0));
+  later.sort((a, b) => known[a.word].due - known[b.word].due);
 
-  // Mix a few new words into review-heavy sessions so learners keep growing.
-  const newShare = due.length > 0 ? Math.max(2, Math.floor(count * 0.3)) : count;
   const chosen = [];
-  const take = (list, n) => {
+  for (const list of [due, learning, fresh, later]) {
     for (const w of list) {
-      if (chosen.length >= count || n <= 0) break;
-      if (!chosen.includes(w)) {
-        chosen.push(w);
-        n -= 1;
-      }
+      if (chosen.length >= count) break;
+      chosen.push(w);
     }
-  };
-  take(due, count - Math.min(newShare, freshByLevel.length));
-  take(freshByLevel, count - chosen.length);
-  take(due, count - chosen.length);
-  take(later, count - chosen.length);
+  }
   return shuffle(chosen, rng);
 }

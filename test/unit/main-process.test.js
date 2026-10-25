@@ -184,11 +184,12 @@ test('IPC only answers the app page, never other frames or origins', async () =>
 test('progress saves through IPC are validated and persisted', async () => {
   const save = calls.ipc.get('progress:save');
   const load = calls.ipc.get('progress:load');
-  assert.equal(await save(trusted, { xp: 42, junk: 'x', words: { serene: { box: 1, seen: 1 } } }), true);
+  const doc = { version: 2, activeProfileId: 'p1', junk: 'x', profiles: [{ id: 'p1', name: 'Ana', color: 'teal', progress: { xp: 42, words: { serene: { box: 1, seen: 1 } } } }] };
+  assert.equal(await save(trusted, doc), true);
   const loaded = await load(trusted);
-  assert.equal(loaded.xp, 42);
+  assert.equal(loaded.profiles[0].progress.xp, 42);
   assert.equal(loaded.junk, undefined);
-  assert.equal(loaded.words.serene.box, 1);
+  assert.equal(loaded.profiles[0].progress.words.serene.box, 1);
   assert.ok(fs.existsSync(path.join(userData, 'progress.json')));
   assert.deepEqual(await calls.ipc.get('app:info')(trusted), { name: 'Vocab Quest', version: '1.0.0' });
 });

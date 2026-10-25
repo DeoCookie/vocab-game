@@ -53,6 +53,40 @@ export function hintPattern(word, revealed = 0) {
   return Array.from(word, (ch, i) => (i < revealed ? ch : '_')).join(' ');
 }
 
+/* ---------- Meaning clusters ----------
+ * Words that appear together in any synonym list (or together as antonyms of
+ * the same word) are treated as close in meaning. Distractors are never drawn
+ * from a target's cluster, so a question can never have two right answers. */
+
+const clusterCache = new WeakMap();
+
+export function meaningClusters(allWords) {
+  if (clusterCache.has(allWords)) return clusterCache.get(allWords);
+  const related = new Map();
+  const link = (group) => {
+    for (const a of group) {
+      if (!related.has(a)) related.set(a, new Set());
+      for (const b of group) related.get(a).add(b);
+    }
+  };
+  for (const w of allWords) {
+    link([w.word, ...w.synonyms]);
+    if (w.antonyms.length) link(w.antonyms);
+  }
+  clusterCache.set(allWords, related);
+  return related;
+}
+
+/** Everything close in meaning to any of `terms` (one hop through the clusters). */
+function closeTo(related, terms) {
+  const out = new Set();
+  for (const t of terms) {
+    out.add(t.toLowerCase());
+    for (const r of related.get(t) || []) out.add(r.toLowerCase());
+  }
+  return out;
+}
+
 function uniqueOptions(correct, candidates, rng, exclude) {
   const seen = new Set([correct.toLowerCase(), ...exclude]);
   const picked = [];
@@ -69,8 +103,11 @@ function uniqueOptions(correct, candidates, rng, exclude) {
 
 /** "What does WORD mean?" with four definitions. */
 export function makeMeaningQuestion(word, allWords, rng) {
-  const samePos = allWords.filter((w) => w.word !== word.word && w.pos === word.pos);
-  const others = allWords.filter((w) => w.word !== word.word);
+  const related = meaningClusters(allWords);
+  const near = closeTo(related, [word.word, ...word.synonyms]);
+  const allowed = (w) => w.word !== word.word && !near.has(w.word) && !w.synonyms.some((s) => near.has(s));
+  const samePos = allWords.filter((w) => w.pos === word.pos && allowed(w));
+  const others = allWords.filter((w) => w.pos !== word.pos && allowed(w));
   const candidates = [...shuffle(samePos, rng), ...shuffle(others, rng)].map((w) => w.definition);
   const { options, answerIndex } = uniqueOptions(word.definition, candidates, rng, []);
   return { type: 'meaning', word, prompt: `What does "${word.word}" mean?`, options, answerIndex };
@@ -78,26 +115,29 @@ export function makeMeaningQuestion(word, allWords, rng) {
 
 /**
  * "Pick a synonym/antonym of WORD". The word's own opposites make the best
- * distractors, so they are used first, and anything that would also be a
- * correct answer is excluded.
+ * distractors, so they are used first. Anything close in meaning to a correct
+ * answer is excluded. Words with no antonym always get a synonym question.
  */
 export function makeRelationQuestion(word, allWords, rng, kind = 'synonym') {
   if (kind !== 'synonym' && kind !== 'antonym') throw new TypeError(`Unknown relation: ${kind}`);
-  const answers = kind === 'synonym' ? word.synonyms : word.antonyms;
-  const opposites = kind === 'synonym' ? word.antonyms : word.synonyms;
+  const actual = kind === 'antonym' && word.antonyms.length === 0 ? 'synonym' : kind;
+  const answers = actual === 'synonym' ? word.synonyms : word.antonyms;
+  const opposites = actual === 'synonym' ? word.antonyms : word.synonyms;
   const correct = pick(answers, rng);
+  const related = meaningClusters(allWords);
+  const exclude = closeTo(related, actual === 'synonym' ? [word.word, ...answers] : answers);
+  if (actual === 'antonym') exclude.add(word.word.toLowerCase());
   const fromOthers = shuffle(
-    allWords.filter((w) => w.word !== word.word).flatMap((w) => (kind === 'synonym' ? w.synonyms : w.antonyms)),
+    allWords.filter((w) => w.word !== word.word).flatMap((w) => (actual === 'synonym' ? w.synonyms : w.antonyms)),
     rng
   );
   const candidates = [...shuffle(opposites, rng).slice(0, 2), ...fromOthers];
-  const exclude = [word.word.toLowerCase(), ...answers.map((a) => a.toLowerCase())];
-  const { options, answerIndex } = uniqueOptions(correct, candidates, rng, exclude);
-  const label = kind === 'synonym' ? 'similar in meaning to' : 'opposite in meaning to';
-  return { type: kind, word, prompt: `Which word is ${label} "${word.word}"?`, options, answerIndex };
+  const { options, answerIndex } = uniqueOptions(correct, candidates, rng, [...exclude]);
+  const label = actual === 'synonym' ? 'similar in meaning to' : 'opposite in meaning to';
+  return { type: actual, word, prompt: `Which word is ${label} "${word.word}"?`, options, answerIndex };
 }
 
-const BASE_XP = Object.freeze({ learn: 4, meaning: 10, synonym: 10, antonym: 10, spelling: 15 });
+const BASE_XP = Object.freeze({ learn: 4, card: 2, meaning: 10, synonym: 10, antonym: 10, relation: 10, spelling: 15 });
 
 /** XP for an answer: base points, a combo bonus, and a penalty for hints. */
 export function xpFor(mode, correct, { combo = 0, hintsUsed = 0 } = {}) {

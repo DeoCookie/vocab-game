@@ -1,12 +1,11 @@
 import { el, clear } from '../dom.js';
-import { filterByLevel } from '../srs.js';
 import { makeRelationQuestion, xpFor } from '../quiz.js';
 import { pick } from '../rng.js';
 
 const DURATION = 60;
 
 export function mountSprint(root, ctx) {
-  const pool = filterByLevel(ctx.words, ctx.progress.settings.level);
+  const pool = ctx.data.byTier[ctx.progress.tier];
   let timer = null;
   let ended = false;
 
@@ -22,7 +21,7 @@ export function mountSprint(root, ctx) {
           el('h1', { class: 'page-title', text: 'Word sprint' }),
           el('p', {
             class: 'page-lede',
-            text: `You have ${DURATION} seconds. Each round asks for a synonym (same meaning) or an antonym (opposite meaning). Answer with the mouse or keys 1 to 4.`
+            text: `You have ${DURATION} seconds. Each round asks for a synonym (same meaning) or an antonym (opposite meaning) of a ${ctx.data.tierName(ctx.progress.tier)} word. Answer with the mouse or keys 1 to 4.`
           })
         ),
         el('p', { class: 'notice', text: `Your best score so far: ${ctx.progress.stats.sprintBest}` }),
@@ -67,7 +66,7 @@ export function mountSprint(root, ctx) {
       locked = false;
       const word = pick(pool, ctx.rng);
       const kind = ctx.rng() < 0.5 ? 'synonym' : 'antonym';
-      const q = makeRelationQuestion(word, ctx.words, ctx.rng, kind);
+      const q = makeRelationQuestion(word, ctx.data.words, ctx.rng, kind);
       const buttons = q.options.map((text, i) =>
         el('button', { type: 'button', class: 'option is-big', dataset: { index: String(i) }, on: { click: () => choose(i) } },
           el('span', { class: 'option-key', text: String(i + 1) }),
@@ -75,7 +74,7 @@ export function mountSprint(root, ctx) {
         )
       );
       clear(stage).append(
-        el('span', { class: `relation-badge ${kind === 'synonym' ? 'is-syn' : 'is-ant'}`, text: kind === 'synonym' ? 'Find a synonym' : 'Find an antonym' }),
+        el('span', { class: `relation-badge ${q.type === 'synonym' ? 'is-syn' : 'is-ant'}`, text: q.type === 'synonym' ? 'Find a synonym' : 'Find an antonym' }),
         el('p', { class: 'sprint-word', text: word.word }),
         el('ul', { class: 'options is-grid' }, buttons.map((b) => el('li', {}, b)))
       );
@@ -85,7 +84,7 @@ export function mountSprint(root, ctx) {
         locked = true;
         const correct = i === q.answerIndex;
         combo = correct ? combo + 1 : 0;
-        const gained = xpFor(kind, correct, { combo: Math.max(0, combo - 1) });
+        const gained = xpFor(q.type, correct, { combo: Math.max(0, combo - 1) });
         xp += gained;
         if (correct) score += 1;
         else missed.set(word.word, word);
@@ -95,8 +94,10 @@ export function mountSprint(root, ctx) {
           else if (j === i) b.classList.add('is-wrong');
         });
         scoreLabel.textContent = combo > 1 ? `Score ${score}, combo x${combo}` : `Score ${score}`;
-        ctx.answer({ word: word.word, correct, mode: kind, xp: gained });
-        setTimeout(round, correct ? 350 : 1100);
+        ctx.answer({ word: word.word, correct, mode: q.type, xp: gained, check: 'relation' });
+        setTimeout(() => {
+          if (!ended) round();
+        }, correct ? 350 : 1100);
       }
 
       ctx.setKeys((e) => {
@@ -144,7 +145,7 @@ export function mountSprint(root, ctx) {
                 'ul',
                 { class: 'review-list' },
                 words.map((w) =>
-                  el('li', { class: 'review-item' }, el('b', { text: w.word }), el('span', { text: ` — similar: ${w.synonyms.join(', ')}; opposite: ${w.antonyms.join(', ')}` }))
+                  el('li', { class: 'review-item' }, el('b', { text: w.word }), el('span', { text: ` — similar: ${w.synonyms.join(', ')}${w.antonyms.length ? `; opposite: ${w.antonyms.join(', ')}` : ''}` }))
                 )
               )
             : null

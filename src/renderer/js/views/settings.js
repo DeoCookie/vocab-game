@@ -1,5 +1,4 @@
 import { el, clear } from '../dom.js';
-import { LEVEL_NAMES } from './entry.js';
 
 function setting(label, help, control, id) {
   return el(
@@ -54,13 +53,8 @@ export function mountSettings(root, ctx) {
   );
   theme.addEventListener('change', () => update({ theme: theme.value }));
 
-  const level = el(
-    'select',
-    { class: 'select', id: 'level' },
-    el('option', { value: 'all', text: 'All 500 words', selected: s.level === 'all' }),
-    [1, 2, 3].map((n) => el('option', { value: String(n), text: `${LEVEL_NAMES[n]} only`, selected: s.level === String(n) }))
-  );
-  level.addEventListener('change', () => update({ level: level.value }));
+  const placement = el('button', { type: 'button', class: 'btn btn-quiet', id: 'retake-placement', text: 'Take the placement quiz', on: { click: () => ctx.navigate('placement') } });
+  const players = el('button', { type: 'button', class: 'btn btn-quiet', id: 'manage-players', text: 'Manage players', on: { click: () => ctx.navigate('players') } });
 
   const reset = el('button', {
     type: 'button',
@@ -69,7 +63,7 @@ export function mountSettings(root, ctx) {
     text: 'Reset progress',
     on: {
       click: async () => {
-        const ok = await ctx.confirm('Reset all progress?', 'This clears your XP, streak, achievements and the review history for every word. Settings are kept. This cannot be undone.', 'Reset progress');
+        const ok = await ctx.confirm(`Reset ${ctx.profile.name}'s progress?`, 'This clears XP, streak, achievements, sets and the review history for every word. Settings and other players are kept. This cannot be undone.', 'Reset progress');
         if (ok) ctx.resetProgress();
       }
     }
@@ -80,7 +74,8 @@ export function mountSettings(root, ctx) {
     { class: 'about' },
     el('p', { id: 'about-version', text: 'Vocab Quest' }),
     el('p', { text: 'Free and open-source software, released under the MIT License.' }),
-    el('p', { text: 'Runs fully offline. Your progress is stored only on this computer, and nothing is sent over the internet.' })
+    el('p', { text: 'Runs fully offline. Your progress is stored only on this computer, and nothing is sent over the internet.' }),
+    el('p', { text: 'Word tiers are ordered using word-frequency data from OpenSubtitles (FrequencyWords by Hermit Dave) and English Wikipedia (by Ilya Semenov).' })
   );
   ctx.appInfo().then((info) => {
     const node = about.querySelector('#about-version');
@@ -91,7 +86,7 @@ export function mountSettings(root, ctx) {
     el(
       'div',
       { class: 'page' },
-      el('header', { class: 'page-head' }, el('h1', { class: 'page-title', text: 'Settings' })),
+      el('header', { class: 'page-head' }, el('h1', { class: 'page-title', text: 'Settings' }), el('p', { class: 'page-lede', text: `Settings for ${ctx.profile.name}.` })),
       ctx.speech.supported ? null : el('p', { class: 'notice', text: 'No speech voices were found. Install an English voice in Windows Settings > Time & language > Speech.' }),
       el(
         'div',
@@ -100,8 +95,9 @@ export function mountSettings(root, ctx) {
         setting('Speaking speed', 'How fast words are read aloud.', el('span', { class: 'setting-control' }, rate, rateLabel, test), 'rate'),
         setting('Sound effects', 'Short tones for right and wrong answers.', sound, 'sound'),
         setting('Appearance', 'Light, dark, or follow your Windows setting.', theme, 'theme'),
-        setting('Word level', 'Which words the games draw from.', level, 'level'),
-        setting('Start over', 'Clear your progress and begin again.', reset, 'reset')
+        setting('Starting point', 'Find the right tier and set for you.', placement, 'retake-placement'),
+        setting('Players', 'Add, rename or switch players.', players, 'manage-players'),
+        setting('Start over', "Clear this player's progress and begin again.", reset, 'reset')
       ),
       about
     )

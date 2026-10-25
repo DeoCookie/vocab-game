@@ -14,16 +14,26 @@ A free desktop game for Windows that grows your English vocabulary. Hear every w
 
 ## What's inside
 
-- **500 carefully chosen words** across three levels (Everyday, Intermediate, Advanced). Each has a definition, an example sentence, synonyms and antonyms.
-- **Four games**
-  - **Study cards** – meet new words and review the ones that are due.
-  - **Meaning match** – pick the right definition from four.
-  - **Spelling bee** – the word is spoken aloud; type it out. Letter tiles show what you got right, and you can reveal a letter if you're stuck.
-  - **Word sprint** – find synonyms and antonyms against a 60-second clock.
+- **1,500 words in three tiers:** Beginner, Expert and Master, ordered from most to least common. Each word has a definition, an example sentence, synonyms and antonyms.
+- **Sets of ten.** Each tier is 50 sets in a suggested order, and you can pick any set. Each set lesson goes through:
+  - meeting the words
+  - matching their meanings
+  - spelling them from the spoken word
+  - finding synonyms and antonyms
+
+  Learn all ten words to earn the set bonus, then remember them over the following days for a gold star.
+- **Placement quiz** to find your starting point.
+- **Hover definitions.** Point at any synonym or antonym to see what it means.
+- **Practice games:**
+  - **Flash cards:** flip through words and rate how well you know them.
+  - **Meaning match:** pick the right definition from four.
+  - **Spelling bee:** the word is spoken aloud and you type it out. Letter tiles show what you got right, and you can reveal a letter if you're stuck.
+  - **Word sprint:** find synonyms and antonyms against a 60-second clock.
 - **Pronunciation** with the voices built into Windows, at normal or slow speed. Click any synonym or antonym to hear it too.
-- **Spaced repetition**: words you miss come back sooner; words you know are spaced further apart until mastered.
-- **XP, levels, daily streaks and 13 achievements.**
-- **Word book** to browse and search all 500 words.
+- **Spaced repetition and reviews.** Words come back at growing intervals: ten minutes, a day, three days, a week.
+- **Players.** Up to eight people can share one computer, each with their own progress.
+- **XP, levels, daily streaks and 16 achievements.**
+- **Word book** to browse and search all 1,500 words.
 - Light and dark themes, full keyboard play (`1`–`4` to answer, `Enter` to continue), screen-reader labels, and reduced-motion support.
 
 ## Run from source (for developers)
@@ -81,15 +91,16 @@ npm run hooks:install
 
 | Suite | What it checks |
 | --- | --- |
-| `test/unit/data.test.mjs` | Exactly 500 unique words; every entry complete; definitions never give away the answer; synonyms and antonyms never overlap |
-| `test/unit/srs.test.mjs` | Spaced-repetition scheduling and word selection |
-| `test/unit/quiz.test.mjs` | Every one of the 500 words produces fair questions with exactly one right answer; spelling checks |
-| `test/unit/state.test.mjs` | XP, levels, streaks (including across month/year ends), achievements, save-format agreement with the main process |
+| `test/unit/data.test.mjs` | 1,500 unique words, 500 per tier, 50 sets of ten; every entry complete; unique definitions and examples; definitions never give away the answer; every synonym and antonym has a hover definition |
+| `test/unit/srs.test.mjs` | Spaced-repetition scheduling (no credit for cramming), learned checks, due words, word selection |
+| `test/unit/sets.test.mjs` | Set status, suggested next set, lessons that resume, set bonuses paid once, placement quiz scoring |
+| `test/unit/quiz.test.mjs` | Every word produces fair questions with exactly one right answer and no near-synonym distractors; spelling checks |
+| `test/unit/state.test.mjs` | Profiles, upgrading version 1 saves, XP, levels, streaks, set bonuses, achievements, save-format agreement with the main process |
 | `test/unit/security.test.js` | Window hardening, CSP, URL allow-listing, path traversal |
 | `test/unit/main-process.test.js` | Loads the real main process against a fake Electron and checks permissions, network blocking, navigation lock-down and IPC sender checks |
-| `test/unit/store.test.js` | Atomic saves, corrupt-file recovery, size limits, prototype-pollution defence |
+| `test/unit/store.test.js` | Atomic saves, version 1 upgrade with backup, corrupt-file recovery, size limits, player limits, prototype-pollution defence |
 | `test/unit/static-safety.test.mjs` | No `innerHTML`/`eval`, no remote URLs, no inline scripts, MIT license present |
-| `test/e2e/app.test.mjs` | Plays every game end to end, checks pronunciation calls, persistence, settings, accessibility names and small-window layout, with zero console errors and zero outbound requests |
+| `test/e2e/app.test.mjs` | Plays a full set lesson, retries, placement, tier switching, hover definitions, players, the 1.0 save upgrade and every game end to end, with zero console errors and zero outbound requests |
 
 ## Project layout
 
@@ -104,7 +115,11 @@ build/         Installer icon
 
 ## Your data
 
-Progress is saved to `%APPDATA%\Vocab Quest\progress.json` and never leaves your computer. The app makes no network connections. Details in [SECURITY.md](SECURITY.md).
+Progress for every player is saved to `%APPDATA%\Vocab Quest\progress.json` and never leaves your computer. The app makes no network connections. Details in [SECURITY.md](SECURITY.md).
+
+## Word data
+
+The definitions, examples, synonyms and antonyms were written for this project. The order of words, both across tiers and within them, was set using word-frequency data from [FrequencyWords](https://github.com/hermitdave/FrequencyWords) (Hermit Dave, OpenSubtitles) and [wikipedia-word-frequency](https://github.com/IlyaSemenov/wikipedia-word-frequency) (Ilya Semenov), averaged across both. The frequency data itself is not included in the app.
 
 ## License
 
