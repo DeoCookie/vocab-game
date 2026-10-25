@@ -9,12 +9,16 @@ import {
   hintPattern,
   makeMeaningQuestion,
   makeRelationQuestion,
+  meaningClusters,
   xpFor,
   OPTION_COUNT
 } from '../../src/renderer/js/quiz.js';
 import { createRng } from '../../src/renderer/js/rng.js';
 
 const { words } = JSON.parse(fs.readFileSync(new URL('../../src/renderer/data/words.json', import.meta.url), 'utf8'));
+const byWord = new Map(words.map((w) => [w.word, w]));
+const related = meaningClusters(words);
+const near = (a, b) => (related.get(a) || new Set()).has(b);
 
 test('answers are normalised before comparing', () => {
   assert.equal(normalizeAnswer('  Serene! '), 'serene');
@@ -30,9 +34,9 @@ test('levenshtein distance', () => {
 
 test('spelling checks accept exact answers and flag near misses', () => {
   assert.equal(checkSpelling('Ubiquitous', 'ubiquitous').correct, true);
-  const near = checkSpelling('ubiquitus', 'ubiquitous');
-  assert.equal(near.correct, false);
-  assert.equal(near.close, true);
+  const close = checkSpelling('ubiquitus', 'ubiquitous');
+  assert.equal(close.correct, false);
+  assert.equal(close.close, true);
   assert.equal(checkSpelling('', 'ubiquitous').correct, false);
   assert.equal(checkSpelling('banana', 'ubiquitous').close, false);
 });
@@ -45,31 +49,53 @@ test('letter comparison and hint pattern', () => {
   assert.equal(hintPattern('serene', 2), 's e _ _ _ _');
 });
 
-test('meaning questions always have four distinct options with exactly one right answer', () => {
+test('meaning questions: four distinct options, one right answer, no near-synonym distractors', () => {
   const rng = createRng(42);
+  const defOwner = new Map(words.map((w) => [w.definition, w.word]));
   for (const w of words) {
     const q = makeMeaningQuestion(w, words, rng);
     assert.equal(q.options.length, OPTION_COUNT);
     assert.equal(new Set(q.options).size, OPTION_COUNT);
     assert.equal(q.options[q.answerIndex], w.definition);
-    assert.equal(q.options.filter((o) => o === w.definition).length, 1);
+    for (const opt of q.options) {
+      const owner = defOwner.get(opt);
+      if (owner === w.word) continue;
+      assert.ok(!near(w.word, owner), `"${owner}" is too close to "${w.word}" to be a distractor`);
+      assert.ok(!w.synonyms.some((s) => near(s, owner)), `"${owner}" shares meaning with a synonym of "${w.word}"`);
+    }
   }
 });
 
-test('synonym and antonym questions never include a second correct answer', () => {
+test('synonym and antonym questions have exactly one correct option', () => {
   const rng = createRng(7);
   for (const w of words) {
     for (const kind of ['synonym', 'antonym']) {
       const q = makeRelationQuestion(w, words, rng, kind);
-      const answers = kind === 'synonym' ? w.synonyms : w.antonyms;
+      const answers = q.type === 'synonym' ? w.synonyms : w.antonyms;
       assert.equal(q.options.length, OPTION_COUNT, `${w.word} ${kind}`);
       assert.equal(new Set(q.options.map((o) => o.toLowerCase())).size, OPTION_COUNT);
       assert.ok(answers.includes(q.options[q.answerIndex]));
-      const correctCount = q.options.filter((o) => answers.includes(o)).length;
-      assert.equal(correctCount, 1, `${w.word} ${kind}: ${q.options.join(', ')}`);
+      const wrong = q.options.filter((_, i) => i !== q.answerIndex);
+      for (const o of wrong) {
+        assert.ok(!answers.includes(o), `${w.word} ${kind}: second answer ${o}`);
+        assert.ok(!answers.some((a) => near(a, o)), `${w.word} ${kind}: "${o}" is close in meaning to an answer`);
+      }
       assert.ok(!q.options.includes(w.word));
     }
   }
+});
+
+test('asking for an antonym of a word without one gives a synonym question', () => {
+  const w = words.find((x) => x.antonyms.length === 0);
+  assert.ok(w);
+  const q = makeRelationQuestion(w, words, createRng(1), 'antonym');
+  assert.equal(q.type, 'synonym');
+  assert.ok(w.synonyms.includes(q.options[q.answerIndex]));
+});
+
+test('meaning clusters group headwords with their synonyms', () => {
+  assert.ok(near('abundant', 'plentiful'));
+  assert.ok(byWord.get('abundant').synonyms.every((s) => near('abundant', s)));
 });
 
 test('unknown relation kinds are rejected', () => {

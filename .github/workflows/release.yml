@@ -20,9 +20,9 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
@@ -64,11 +64,19 @@ jobs:
           TAG: ${{ steps.tag.outputs.name }}
         run: |
           files=(dist/*.exe dist/SHA256SUMS.txt)
+          extra=()
+          notes=.github/release-notes.md
+          # Versions like 1.1.0-beta.1 are test builds: publish them as pre-releases
+          # so the "latest" download link keeps pointing at the stable version.
+          if [[ "$TAG" == *-* ]]; then
+            extra+=(--prerelease)
+            notes=.github/prerelease-notes.md
+          fi
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" "${files[@]}" --clobber
           else
             gh release create "$TAG" "${files[@]}" \
               --title "Vocab Quest ${TAG#v}" \
-              --notes-file .github/release-notes.md \
-              --target "$GITHUB_SHA"
+              --notes-file "$notes" \
+              --target "$GITHUB_SHA" "${extra[@]}"
           fi
