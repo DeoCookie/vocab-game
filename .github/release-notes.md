@@ -1,3 +1,14 @@
+## What's new in 1.1
+
+- **1,500 words in three tiers:** Beginner, Expert and Master, ordered from most to least common.
+- **Sets of ten in a suggested order.** You can open any set. Learn all ten words for a set bonus, then remember them over the following days for a gold star.
+- **Placement quiz** to find your starting point.
+- **Hover definitions:** point at any synonym or antonym to see what it means.
+- **Players:** up to eight people can share one computer, each with their own progress.
+- **Review screen** for words that are due.
+
+**Updating from 1.0:** run the new installer. It installs over the old version, and your progress carries over. A backup of your old save is kept as `progress.json.v1-backup` in `%APPDATA%\Vocab Quest`.
+
 ## Download
 
 | File | What it is |

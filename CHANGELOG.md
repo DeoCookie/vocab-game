@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.1.0-beta.1 (2026-10-25)
+## 1.1.0 (2026-10-25)
 
-Adult track rebuild, published as a beta for review.
+Adult track rebuild.
 
 - 1,500 words in three tiers of 500: Beginner, Expert and Master. Tiers and the order within them are based on word-frequency data, so difficulty rises steadily. The original 500 words are kept, and 1,000 new words were added (most of them in Master).
 - Each tier is split into 50 sets of ten words in a suggested order, and players can open any set. A word counts as learned once its meaning, spelling and a synonym or antonym have each been answered correctly. Learning a whole set earns a bonus, and remembering it in later reviews earns a gold star.
